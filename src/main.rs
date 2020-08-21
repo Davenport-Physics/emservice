@@ -12,11 +12,26 @@ mod db_postgres;
 fn person_create_user(user: Json<fivem_person::UserCredentials>) -> String {
 
     println!("{:?}", user);
-    fivem_person::create_user::create(user.into_inner())
 
+    let user = user.into_inner();
+
+    if !fivem_person::create_user::user_exists(&user) {
+
+        fivem_person::create_user::create(user)
+
+    } else {
+
+        let response = fivem_person::ErrorResponse {
+
+            result_code : fivem_person::ResultCodes::UserAlreadyExists
+
+        };
+        serde_json::to_string(&response).unwrap()
+        
+    }
 }
 
-#[get("/Person/GetSession")]
+#[get("/Person/Login")]
 fn person_get_session() -> String {
 
     "".to_string()

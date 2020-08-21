@@ -1,6 +1,14 @@
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ResultCodes {
+
+    Successful,
+    UserAlreadyExists,
+    GeneralError,
+
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserCredentials {
@@ -12,14 +20,15 @@ pub struct UserCredentials {
 #[derive(Serialize, Deserialize, Debug)]
 struct UserSession {
 
-    session_id: String
+    session_id: String,
+    result_code: ResultCodes
 
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ErrorResponse {
+pub struct ErrorResponse {
 
-    error: String
+    pub result_code: ResultCodes
 
 }
 
@@ -27,20 +36,21 @@ struct ErrorResponse {
 pub mod create_user {
 
     use crate::db_postgres;
-    use crate::fivem_person::UserCredentials;
+    use crate::fivem_person::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
     use crate::service_hashing;
 
-    pub fn create(user: super::UserCredentials) -> String {
+    pub fn create(user: UserCredentials) -> String {
 
         let client = db_postgres::get_connection();
         match client {
 
             Ok(conn) => {
 
-                let session_id   = person_create_user_set(conn, user);
-                let user_session = super::UserSession {
+                let session_id   = user_set(conn, user);
+                let user_session = UserSession {
 
-                    session_id: session_id
+                    session_id: session_id,
+                    result_code: ResultCodes::Successful
 
                 };
                 serde_json::to_string(&user_session).unwrap()
@@ -49,9 +59,9 @@ pub mod create_user {
             Err(err) => {
 
                 println!("{:?}", err);
-                let error = super::ErrorResponse {
+                let error = ErrorResponse {
 
-                    error : err.to_string()
+                    result_code: ResultCodes::GeneralError
 
                 };
                 serde_json::to_string(&error).unwrap()
@@ -61,7 +71,35 @@ pub mod create_user {
 
     }
 
-    fn person_create_user_set(mut client: postgres::Client, user: UserCredentials) -> String {
+    pub fn user_exists(user: &UserCredentials) -> bool {
+
+        let client = db_postgres::get_connection();
+
+        match client {
+
+            Ok(mut client) => {
+
+                let row = client.query_one("SELECT * FROM Person.User WHERE UserName = $1", &[&user.username]);
+                match row {
+                    Ok(_) => true,
+                    Err(err) => {
+
+                        println!("{:?}", err);
+                        false
+                        
+                    }
+                }
+            }
+            Err(err) => {
+
+                println!("{:?}", err);
+                false
+
+            }
+        }
+    }
+
+    fn user_set(mut client: postgres::Client, user: UserCredentials) -> String {
 
         let argon2_hash = service_hashing::get_argon2_hash(&user.password_hash);
 
@@ -74,6 +112,19 @@ pub mod create_user {
         client.execute("INSERT INTO Person.UserSession (UserId, SessionId) VALUES ($1, $2)", &[&user_id, &session_id]).unwrap();
 
         session_id
+
+    }
+}
+
+pub mod login_user {
+
+    use crate::db_postgres;
+    use crate::fivem_person::{UserCredentials, UserSession};
+    use crate::service_hashing;
+
+    pub fn login(user: UserCredentials) -> String {
+
+        "".to_string()
 
     }
 
