@@ -6,7 +6,9 @@ pub enum ResultCodes {
 
     Successful,
     UserAlreadyExists,
+    UserDoesNotExist,
     GeneralError,
+    PasswordDidNotMatch
 
 }
 
@@ -86,14 +88,14 @@ pub mod create_user {
 
                         println!("{:?}", err);
                         false
-                        
+
                     }
                 }
             }
             Err(err) => {
 
                 println!("{:?}", err);
-                false
+                true
 
             }
         }
@@ -105,12 +107,10 @@ pub mod create_user {
 
         let row = client.query_one("INSERT INTO Person.User (UserName, PasswordHash, PasswordSalt) VALUES ($1, $2, $3) RETURNING UserId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt]).unwrap();
         let user_id: i32 = row.get("UserId");
-
         let argon2_hash = service_hashing::get_argon2_hash(&user.password_hash);
         let session_id  = service_hashing::get_sha512_hash(&argon2_hash.hash);
 
         client.execute("INSERT INTO Person.UserSession (UserId, SessionId) VALUES ($1, $2)", &[&user_id, &session_id]).unwrap();
-
         session_id
 
     }
@@ -119,13 +119,67 @@ pub mod create_user {
 pub mod login_user {
 
     use crate::db_postgres;
-    use crate::fivem_person::{UserCredentials, UserSession};
+    use crate::fivem_person::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
     use crate::service_hashing;
 
-    pub fn login(user: UserCredentials) -> String {
+    struct PersonUser {
 
-        "".to_string()
+        user_id       : i32,
+        username      : String,
+        password_hash : String,
+        password_salt : String
 
     }
 
+    pub fn login(user: UserCredentials) -> String {
+
+        let client = db_postgres::get_connection();
+        match client {
+
+            Ok(mut client) => {
+
+                let person_user = get_person_user(&mut client, &user);
+                let argon2_hash = service_hashing::get_argon2_hash_salt(&user.password_hash, &person_user.password_salt);
+                if person_user.password_hash.eq(&argon2_hash.hash) {
+
+                    let session_id = create_session(&mut client, &person_user);
+                    return serde_json::to_string(&UserSession {
+
+                        result_code : ResultCodes::Successful,
+                        session_id  : session_id
+
+                    }).unwrap()
+
+                }
+                serde_json::to_string(&ErrorResponse {
+                    result_code : ResultCodes::GeneralError
+                }).unwrap()
+            }
+            Err(err) => {
+                serde_json::to_string(&ErrorResponse {
+                    result_code : ResultCodes::GeneralError
+                }).unwrap()
+            }
+        }
+    }
+
+    fn get_person_user(client: &mut postgres::Client, user: &UserCredentials) -> PersonUser {
+
+        let row = client.query_one("SELECT * FROM Person.User WHERE UserName = $1", &[&user.username]).unwrap();
+        PersonUser {
+            user_id       : row.get("UserId"),
+            username      : row.get("UserName"),
+            password_hash : row.get("PasswordHash"),
+            password_salt : row.get("PasswordSalt")
+        }
+    }
+
+    fn create_session(client: &mut postgres::Client, person_user: &PersonUser) -> String {
+
+        let argon2_hash = service_hashing::get_argon2_hash(&person_user.password_hash);
+        let session_id  = service_hashing::get_sha512_hash(&argon2_hash.hash);
+        client.execute("INSERT INTO Person.UserSession (UserId, SessionId) VALUES ($1, $2)", &[&person_user.user_id, &session_id]).unwrap();
+        session_id
+
+    }
 }

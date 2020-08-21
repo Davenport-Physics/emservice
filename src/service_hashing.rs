@@ -3,7 +3,7 @@ use argon2::{self, Config};
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 use sha2::{Sha512, Digest};
-use std::str;
+
 use std::iter::Iterator;
 
 pub struct Argon2HashWithSalt {
@@ -20,6 +20,23 @@ pub fn get_argon2_hash(data_to_hash: &String) -> Argon2HashWithSalt {
     let rng = thread_rng();
     let random_salt: String = rng.sample_iter(Alphanumeric).take(64).collect();
     let hash = argon2::hash_encoded(data_to_hash.as_bytes(), &random_salt.as_bytes(), &config).unwrap();
+
+    Argon2HashWithSalt {
+
+        hash : hash,
+        salt : random_salt    
+
+    }
+
+}
+
+pub fn get_argon2_hash_salt(data_to_hash: &String, salt: &String) -> Argon2HashWithSalt {
+
+    let config = Config::default();
+
+    let rng = thread_rng();
+    let random_salt: String = rng.sample_iter(Alphanumeric).take(64).collect();
+    let hash = argon2::hash_encoded(data_to_hash.as_bytes(), &salt.as_bytes(), &config).unwrap();
 
     Argon2HashWithSalt {
 

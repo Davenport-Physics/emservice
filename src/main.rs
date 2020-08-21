@@ -3,10 +3,9 @@
 #[macro_use] extern crate rocket;
 
 use rocket_contrib::json::Json;
-
-mod service_hashing;
 mod fivem_person;
 mod db_postgres;
+mod service_hashing;
 
 #[post("/Person/CreateUser", format = "json", data = "<user>")]
 fn person_create_user(user: Json<fivem_person::UserCredentials>) -> String {
@@ -27,14 +26,30 @@ fn person_create_user(user: Json<fivem_person::UserCredentials>) -> String {
 
         };
         serde_json::to_string(&response).unwrap()
-        
+
     }
 }
 
-#[get("/Person/Login")]
-fn person_get_session() -> String {
+#[get("/Person/Login", format = "json", data = "<user>")]
+fn person_get_session(user: Json<fivem_person::UserCredentials>) -> String {
 
-    "".to_string()
+    println!("{:?}", user);
+
+    let user = user.into_inner();
+    if fivem_person::create_user::user_exists(&user) {
+
+        fivem_person::login_user::login(user)
+
+    } else {
+
+        let response = fivem_person::ErrorResponse {
+
+            result_code : fivem_person::ResultCodes::UserDoesNotExist
+
+        };
+        serde_json::to_string(&response).unwrap()
+
+    }
 
 }
 
