@@ -16,7 +16,8 @@ pub enum ResultCodes {
 pub struct UserCredentials {
 
     pub username: String,
-    pub password_hash: String
+    pub password_hash: String,
+    pub steam_id: String
 
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -34,11 +35,10 @@ pub struct ErrorResponse {
 
 }
 
-
-pub mod create_user {
+pub mod user {
 
     use crate::db_postgres;
-    use crate::fivem_person::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
+    use crate::player::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
     use crate::service_hashing;
 
     pub fn create(user: UserCredentials) -> String {
@@ -46,10 +46,10 @@ pub mod create_user {
         let client = db_postgres::get_connection();
         match client {
 
-            Ok(conn) => {
+            Ok(mut conn) => {
 
-                let session_id   = user_set(conn, user);
-                let user_session = UserSession {
+                let session_id     = create_player_records(&mut conn, &user);
+                let user_session   = UserSession {
 
                     session_id: session_id,
                     result_code: ResultCodes::Successful
@@ -73,7 +73,7 @@ pub mod create_user {
 
     }
 
-    pub fn user_exists(user: &UserCredentials) -> bool {
+    pub fn exists(user: &UserCredentials) -> bool {
 
         let client = db_postgres::get_connection();
 
@@ -101,17 +101,33 @@ pub mod create_user {
         }
     }
 
-    fn user_set(mut client: postgres::Client, user: UserCredentials) -> String {
+    fn create_player_records(mut client: &mut postgres::Client, user: &UserCredentials) -> String {
 
+        let third_party_id = create_player_thirdparty(&mut client, &user);
         let argon2_hash = service_hashing::get_argon2_hash(&user.password_hash);
 
-        let row = client.query_one("INSERT INTO Person.User (UserName, PasswordHash, PasswordSalt) VALUES ($1, $2, $3) RETURNING UserId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt]).unwrap();
-        let user_id: i32 = row.get("UserId");
-        let argon2_hash = service_hashing::get_argon2_hash(&user.password_hash);
-        let session_id  = service_hashing::get_sha512_hash(&argon2_hash.hash);
+        let row            = client.query_one("INSERT INTO Player.Players (UserName, PasswordHash, PasswordSalt, PlayerThirdPartyId) VALUES ($1, $2, $3, $4) RETURNING PlayerId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt, &third_party_id]).unwrap();
+        let player_id: i32 = row.get("PlayerId");
+        let argon2_hash    = service_hashing::get_argon2_hash(&user.password_hash);
+        let session_id     = service_hashing::get_sha512_hash(&argon2_hash.hash);
 
-        client.execute("INSERT INTO Person.UserSession (UserId, SessionId) VALUES ($1, $2)", &[&user_id, &session_id]).unwrap();
+        client.execute("INSERT INTO Player.Sessions (PlayerId, SessionId) VALUES ($1, $2)", &[&player_id, &session_id]).unwrap();
+        create_player_queue_permissions(&mut client, player_id);
         session_id
+
+    }
+
+    fn create_player_thirdparty(client: &mut postgres::Client, user: &UserCredentials) -> i32 {
+
+        let row = client.query_one("INSERT INTO Player.ThirdParty (SteamId) VALUES ($1) RETURNING PlayerThirdPartyId", &[&user.steam_id]).unwrap();
+        let third_party_id: i32 = row.get("PlayerThirdPartyId");
+        third_party_id
+
+    }
+
+    fn create_player_queue_permissions(client: &mut postgres::Client, player_id: i32) {
+
+        client.execute("INSERT INTO Queue.Permissions (PlayerId) VALUES ($1)", &[&player_id]).unwrap();
 
     }
 }
@@ -119,13 +135,12 @@ pub mod create_user {
 pub mod login_user {
 
     use crate::db_postgres;
-    use crate::fivem_person::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
+    use crate::player::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
     use crate::service_hashing;
 
     struct PersonUser {
 
-        user_id       : i32,
-        username      : String,
+        player_id       : i32,
         password_hash : String,
         password_salt : String
 
@@ -155,7 +170,7 @@ pub mod login_user {
                     result_code : ResultCodes::GeneralError
                 }).unwrap()
             }
-            Err(err) => {
+            Err(_err) => {
                 serde_json::to_string(&ErrorResponse {
                     result_code : ResultCodes::GeneralError
                 }).unwrap()
@@ -165,10 +180,9 @@ pub mod login_user {
 
     fn get_person_user(client: &mut postgres::Client, user: &UserCredentials) -> PersonUser {
 
-        let row = client.query_one("SELECT * FROM Person.User WHERE UserName = $1", &[&user.username]).unwrap();
+        let row = client.query_one("SELECT * FROM Player.Players WHERE UserName = $1", &[&user.username]).unwrap();
         PersonUser {
-            user_id       : row.get("UserId"),
-            username      : row.get("UserName"),
+            player_id     : row.get("PlayerId"),
             password_hash : row.get("PasswordHash"),
             password_salt : row.get("PasswordSalt")
         }
@@ -178,7 +192,7 @@ pub mod login_user {
 
         let argon2_hash = service_hashing::get_argon2_hash(&person_user.password_hash);
         let session_id  = service_hashing::get_sha512_hash(&argon2_hash.hash);
-        client.execute("INSERT INTO Person.UserSession (UserId, SessionId) VALUES ($1, $2)", &[&person_user.user_id, &session_id]).unwrap();
+        client.execute("INSERT INTO Player.Sessions (PlayerId, SessionId) VALUES ($1, $2)", &[&person_user.player_id, &session_id]).unwrap();
         session_id
 
     }

@@ -3,26 +3,26 @@
 #[macro_use] extern crate rocket;
 
 use rocket_contrib::json::Json;
-mod fivem_person;
+mod player;
 mod db_postgres;
 mod service_hashing;
 
-#[post("/Person/CreateUser", format = "json", data = "<user>")]
-fn person_create_user(user: Json<fivem_person::UserCredentials>) -> String {
+#[post("/Player/Create", format = "json", data = "<user>")]
+fn person_create_user(user: Json<player::UserCredentials>) -> String {
 
     println!("{:?}", user);
 
     let user = user.into_inner();
 
-    if !fivem_person::create_user::user_exists(&user) {
+    if !player::user::exists(&user) {
 
-        fivem_person::create_user::create(user)
+        player::user::create(user)
 
     } else {
 
-        let response = fivem_person::ErrorResponse {
+        let response = player::ErrorResponse {
 
-            result_code : fivem_person::ResultCodes::UserAlreadyExists
+            result_code : player::ResultCodes::UserAlreadyExists
 
         };
         serde_json::to_string(&response).unwrap()
@@ -30,21 +30,21 @@ fn person_create_user(user: Json<fivem_person::UserCredentials>) -> String {
     }
 }
 
-#[get("/Person/Login", format = "json", data = "<user>")]
-fn person_get_session(user: Json<fivem_person::UserCredentials>) -> String {
+#[get("/Player/Login", format = "json", data = "<user>")]
+fn person_get_session(user: Json<player::UserCredentials>) -> String {
 
     println!("{:?}", user);
 
     let user = user.into_inner();
-    if fivem_person::create_user::user_exists(&user) {
+    if player::user::exists(&user) {
 
-        fivem_person::login_user::login(user)
+        player::login_user::login(user)
 
     } else {
 
-        let response = fivem_person::ErrorResponse {
+        let response = player::ErrorResponse {
 
-            result_code : fivem_person::ResultCodes::UserDoesNotExist
+            result_code : player::ResultCodes::UserDoesNotExist
 
         };
         serde_json::to_string(&response).unwrap()
