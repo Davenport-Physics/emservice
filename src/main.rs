@@ -3,12 +3,14 @@
 #[macro_use] extern crate rocket;
 
 use rocket_contrib::json::Json;
+
 mod player;
 mod db_postgres;
 mod service_hashing;
+mod character;
 
 #[post("/Player/Create", format = "json", data = "<user>")]
-fn person_create_user(user: Json<player::UserCredentials>) -> String {
+fn player_create(user: Json<player::UserCredentials>) -> String {
 
     println!("{:?}", user);
 
@@ -31,7 +33,7 @@ fn person_create_user(user: Json<player::UserCredentials>) -> String {
 }
 
 #[get("/Player/Login", format = "json", data = "<user>")]
-fn person_get_session(user: Json<player::UserCredentials>) -> String {
+fn player_login(user: Json<player::UserCredentials>) -> String {
 
     println!("{:?}", user);
 
@@ -53,11 +55,36 @@ fn person_get_session(user: Json<player::UserCredentials>) -> String {
 
 }
 
+#[get("/Character/GetAll", format = "json", data = "<player>")]
+fn get_characters(player: Json<player::Player>) -> String {
+
+    character::get_characters(player.into_inner())
+
+}
+
+#[get("/Character/GetPosition", format = "json", data = "<character>")]
+fn get_character_position(character: Json<character::CharacterId>) -> String {
+
+    character::get_character_position(character.into_inner())
+
+}
+
+#[get("/Character/GetHealth", format = "json", data = "<character>")]
+fn get_character_health(character: Json<character::CharacterId>) -> String {
+
+    character::get_character_health(character.into_inner())
+
+}
+
 #[get("/")]
 fn index() -> &'static str {
+
     "Hello, world!"
+
 }
 
 fn main() {
-    rocket::ignite().mount("/", routes![index, person_create_user, person_get_session]).launch();
+
+    rocket::ignite().mount("/", routes![index, player_create, player_login, get_characters, get_character_position, get_character_health]).launch();
+
 }

@@ -17,7 +17,6 @@ pub struct UserCredentials {
 
     pub username: String,
     pub password_hash: String,
-    pub steam_id: String
 
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -32,6 +31,13 @@ struct UserSession {
 pub struct ErrorResponse {
 
     pub result_code: ResultCodes
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Player {
+
+    pub player_id: String
 
 }
 
@@ -103,10 +109,9 @@ pub mod user {
 
     fn create_player_records(mut client: &mut postgres::Client, user: &UserCredentials) -> String {
 
-        let third_party_id = create_player_thirdparty(&mut client, &user);
         let argon2_hash = service_hashing::get_argon2_hash(&user.password_hash);
 
-        let row            = client.query_one("INSERT INTO Player.Players (UserName, PasswordHash, PasswordSalt, PlayerThirdPartyId) VALUES ($1, $2, $3, $4) RETURNING PlayerId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt, &third_party_id]).unwrap();
+        let row            = client.query_one("INSERT INTO Player.Players (UserName, PasswordHash, PasswordSalt) VALUES ($1, $2, $3, $4) RETURNING PlayerId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt]).unwrap();
         let player_id: i32 = row.get("PlayerId");
         let argon2_hash    = service_hashing::get_argon2_hash(&user.password_hash);
         let session_id     = service_hashing::get_sha512_hash(&argon2_hash.hash);
@@ -114,14 +119,6 @@ pub mod user {
         client.execute("INSERT INTO Player.Sessions (PlayerId, SessionId) VALUES ($1, $2)", &[&player_id, &session_id]).unwrap();
         create_player_queue_permissions(&mut client, player_id);
         session_id
-
-    }
-
-    fn create_player_thirdparty(client: &mut postgres::Client, user: &UserCredentials) -> i32 {
-
-        let row = client.query_one("INSERT INTO Player.ThirdParty (SteamId) VALUES ($1) RETURNING PlayerThirdPartyId", &[&user.steam_id]).unwrap();
-        let third_party_id: i32 = row.get("PlayerThirdPartyId");
-        third_party_id
 
     }
 
