@@ -37,7 +37,7 @@ pub struct ErrorResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Player {
 
-    pub player_id: String
+    pub player_id: i32
 
 }
 
@@ -87,7 +87,7 @@ pub mod user {
 
             Ok(mut client) => {
 
-                let row = client.query_one("SELECT * FROM Person.User WHERE UserName = $1", &[&user.username]);
+                let row = client.query_one("SELECT * FROM Player.Players WHERE UserName = $1", &[&user.username]);
                 match row {
                     Ok(_) => true,
                     Err(err) => {
@@ -111,7 +111,7 @@ pub mod user {
 
         let argon2_hash = service_hashing::get_argon2_hash(&user.password_hash);
 
-        let row            = client.query_one("INSERT INTO Player.Players (UserName, PasswordHash, PasswordSalt) VALUES ($1, $2, $3, $4) RETURNING PlayerId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt]).unwrap();
+        let row            = client.query_one("INSERT INTO Player.Players (UserName, PasswordHash, PasswordSalt) VALUES ($1, $2, $3) RETURNING PlayerId", &[&user.username, &argon2_hash.hash, &argon2_hash.salt]).unwrap();
         let player_id: i32 = row.get("PlayerId");
         let argon2_hash    = service_hashing::get_argon2_hash(&user.password_hash);
         let session_id     = service_hashing::get_sha512_hash(&argon2_hash.hash);

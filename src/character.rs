@@ -6,6 +6,7 @@ use crate::player;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateCharacter {
 
+    player_id: i32,
     firstname: String,
     lastname: String,
     dob: String
@@ -57,17 +58,18 @@ pub struct CharacterId {
 }
 
 
-pub fn create(character: CreateCharacter) {
+pub fn create(character: CreateCharacter) -> String {
 
     let mut client   = db_postgres::get_connection().unwrap();
     let character_id = create_character_entry(&mut client, &character);
     create_default_entries(&mut client, &character_id);
+    serde_json::to_string(&CharacterId { character_id }).unwrap()
 
 }
 
 fn create_character_entry(client: &mut postgres::Client, character: &CreateCharacter) -> i32 {
 
-    let row = client.query_one("INSERT INTO Player.Characters (FirstName, LastName, DOB) VALUES ($1, $2, $3) RETURNING CharacterId", &[&character.firstname, &character.lastname, &character.dob]).unwrap();
+    let row = client.query_one("INSERT INTO Player.Characters (PlayerId, FirstName, LastName, DOB) VALUES ($1, $2, $3, $4) RETURNING CharacterId", &[&character.player_id, &character.firstname, &character.lastname, &character.dob]).unwrap();
     let character_id = row.get("CharacterId");
     character_id
 
@@ -132,7 +134,7 @@ pub fn get_character_position(character: CharacterId) -> String {
 pub fn get_character_health(character: CharacterId) -> String {
 
     let mut client = db_postgres::get_connection().unwrap();
-    let row = client.query_one("SELECT CharacterId, Hunger, Thirst FROM Character.PositionsCharacter.Health WHERE CharacterId = $1", &[&character.character_id]).unwrap();
+    let row = client.query_one("SELECT CharacterId, Hunger, Thirst FROM Character.Health WHERE CharacterId = $1", &[&character.character_id]).unwrap();
     let health = CharacterHealth {
 
         character_id: row.get("CharacterId"),
@@ -146,7 +148,7 @@ pub fn get_character_health(character: CharacterId) -> String {
 
 pub fn set_character_position(position: CharacterPostion) {
 
-    let mut client = db_postgres::get_connection().unwrap();
+    let mut client   = db_postgres::get_connection().unwrap();
     client.execute("UPDATE Character.Positions SET X = $1, Y = $2, Z = $3, Heading = $4 WHERE CharacterId = $5", &[&position.x, &position.y, &position.z, &position.heading, &position.character_id]).unwrap();
 
 }

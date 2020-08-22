@@ -55,6 +55,13 @@ fn player_login(user: Json<player::UserCredentials>) -> String {
 
 }
 
+#[post("/Character/Create", format = "json", data = "<character>")]
+fn character_create(character: Json<character::CreateCharacter>) -> String {
+
+    character::create(character.into_inner())
+
+}
+
 #[get("/Character/GetAll", format = "json", data = "<player>")]
 fn get_characters(player: Json<player::Player>) -> String {
 
@@ -85,6 +92,6 @@ fn index() -> &'static str {
 
 fn main() {
 
-    rocket::ignite().mount("/", routes![index, player_create, player_login, get_characters, get_character_position, get_character_health]).launch();
+    rocket::ignite().mount("/", routes![index, player_create, player_login, character_create, get_characters, get_character_position, get_character_health]).launch();
 
 }
