@@ -28,6 +28,13 @@ struct UserSession {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Session {
+
+    pub session_id: String
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ErrorResponse {
 
     pub result_code: ResultCodes
@@ -132,12 +139,12 @@ pub mod user {
 pub mod login_user {
 
     use crate::db_postgres;
-    use crate::player::{UserCredentials, UserSession, ErrorResponse, ResultCodes};
+    use crate::player::{UserCredentials, UserSession, ErrorResponse, ResultCodes, Player, Session};
     use crate::service_hashing;
 
     struct PersonUser {
 
-        player_id       : i32,
+        player_id     : i32,
         password_hash : String,
         password_salt : String
 
@@ -166,6 +173,27 @@ pub mod login_user {
                 serde_json::to_string(&ErrorResponse {
                     result_code : ResultCodes::GeneralError
                 }).unwrap()
+            }
+            Err(_err) => {
+                serde_json::to_string(&ErrorResponse {
+                    result_code : ResultCodes::GeneralError
+                }).unwrap()
+            }
+        }
+    }
+
+    pub fn get_player_id_by_session_id(session: Session) -> String {
+
+        let client = db_postgres::get_connection();
+        match client {
+
+            Ok(mut client) => {
+
+                let row = client.query_one("SELECT PlayerId FROM Player.Sessions WHERE SessionId = $1", &[&session.session_id]).unwrap();
+                serde_json::to_string(&Player {
+                    player_id : row.get("PlayerId")
+                }).unwrap()
+
             }
             Err(_err) => {
                 serde_json::to_string(&ErrorResponse {
