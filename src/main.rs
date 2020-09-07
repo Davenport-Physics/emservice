@@ -8,6 +8,7 @@ mod player;
 mod db_postgres;
 mod service_hashing;
 mod character;
+mod storage;
 
 #[post("/Player/Create", format = "json", data = "<user>")]
 fn player_create(user: Json<player::UserCredentials>) -> String {
@@ -90,6 +91,28 @@ fn get_character_position(character: Json<character::CharacterId>) -> String {
 fn get_character_health(character: Json<character::CharacterId>) -> String {
 
     character::get_character_health(character.into_inner())
+
+}
+
+#[get("/Character/GetInfo", format = "json", data = "<character>")]
+fn get_character_info(character: Json<character::CharacterId>) -> String {
+
+    "".to_string()
+    //character::get_character_health(character.into_inner())
+
+}
+
+#[put("/Character/UpdateHealth", format = "json", data = "<character_health>")]
+fn update_character_heatlh(character_health: Json<character::CharacterHealth>) {
+
+    character::set_character_health(character_health.into_inner());
+
+}
+
+#[put("/Character/UpdatePosition", format = "json", data = "<character_position>")]
+fn update_character_position(character_position: Json<character::CharacterPosition>) {
+
+    character::set_character_position(character_position.into_inner());
 
 }
 

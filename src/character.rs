@@ -31,9 +31,8 @@ pub struct Characters {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct CharacterPostion {
+struct Position {
 
-    character_id: i32,
     x: f32,
     y: f32,
     z: f32,
@@ -42,11 +41,35 @@ pub struct CharacterPostion {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct Health {
+
+    hunger: i32,
+    thirst: i32
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CharacterPosition {
+
+    character_id: i32,
+    position: Position
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CharacterHealth {
 
     character_id: i32,
-    hunger: i32,
-    thirst: i32
+    health: Health
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct CharacterInfo {
+
+    character: Character,
+    position: Position,
+    health: Health,
 
 }
 
@@ -118,14 +141,11 @@ pub fn get_character_position(character: CharacterId) -> String {
 
     let mut client = db_postgres::get_connection().unwrap();
     let row = client.query_one("SELECT CharacterId, X, Y, Z, Heading FROM Character.Positions WHERE CharacterId = $1", &[&character.character_id]).unwrap();
-    let positions = CharacterPostion {
-
-        character_id: row.get("CharacterId"),
+    let positions = Position {
         x: row.get("X"),
         y: row.get("Y"),
         z: row.get("Z"),
         heading: row.get("heading")
-
     };
     serde_json::to_string(&positions).unwrap()
 
@@ -135,27 +155,24 @@ pub fn get_character_health(character: CharacterId) -> String {
 
     let mut client = db_postgres::get_connection().unwrap();
     let row = client.query_one("SELECT CharacterId, Hunger, Thirst FROM Character.Health WHERE CharacterId = $1", &[&character.character_id]).unwrap();
-    let health = CharacterHealth {
-
-        character_id: row.get("CharacterId"),
+    let health = Health {
         hunger: row.get("Hunger"),
         thirst: row.get("Thirst")
-
     };
     serde_json::to_string(&health).unwrap()
 
 }
 
-pub fn set_character_position(position: CharacterPostion) {
+pub fn set_character_position(position: CharacterPosition) {
 
     let mut client   = db_postgres::get_connection().unwrap();
-    client.execute("UPDATE Character.Positions SET X = $1, Y = $2, Z = $3, Heading = $4 WHERE CharacterId = $5", &[&position.x, &position.y, &position.z, &position.heading, &position.character_id]).unwrap();
+    client.execute("UPDATE Character.Positions SET X = $1, Y = $2, Z = $3, Heading = $4 WHERE CharacterId = $5", &[&position.position.x, &position.position.y, &position.position.z, &position.position.heading, &position.character_id]).unwrap();
 
 }
 
 pub fn set_character_health(health: CharacterHealth) {
 
     let mut client = db_postgres::get_connection().unwrap();
-    client.execute("UPDATE Character.Health SET Hunger = $1, Thirst = $2 WHERE CharacterId = $3", &[&health.hunger, &health.thirst, &health.character_id]).unwrap();
+    client.execute("UPDATE Character.Health SET Hunger = $1, Thirst = $2 WHERE CharacterId = $3", &[&health.health.hunger, &health.health.thirst, &health.character_id]).unwrap();
 
 }
