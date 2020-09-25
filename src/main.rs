@@ -116,15 +116,23 @@ fn update_character_position(character_position: Json<character::CharacterPositi
 
 }
 
-#[get("/")]
-fn index() -> &'static str {
+#[put("/Character/Disable", format = "json", data = "<character>")]
+fn disable_character(character: Json<character::CharacterId>) {
 
-    "Hello, world!"
+    character::disable_character(character.into_inner());
 
 }
 
+#[put("/Character/Enable", format = "json", data = "<character>")]
+fn enable_character(character: Json<character::CharacterId>) {
+
+    character::enable_character(character.into_inner());
+
+}
+
+
 fn main() {
 
-    rocket::ignite().mount("/", routes![index, player_create, player_login, character_create, get_characters, get_character_position, get_character_health, player_id]).launch();
+    rocket::ignite().mount("/", routes![player_create, player_login, character_create, get_characters, get_character_position, get_character_health, player_id]).launch();
 
 }

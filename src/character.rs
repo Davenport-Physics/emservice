@@ -122,7 +122,7 @@ pub fn get_characters(player: player::Player) -> String  {
     let mut all_characters = Characters {
         characters: Vec::new()
     };
-    for row in client.query("SELECT CharacterId, FirstName, LastName, DOB FROM Player.Characters WHERE PlayerId = $1", &[&player.player_id]).unwrap() {
+    for row in client.query("SELECT CharacterId, FirstName, LastName, DOB FROM Player.Characters WHERE PlayerId = $1 AND Disabled = 'f'", &[&player.player_id]).unwrap() {
 
         all_characters.characters.push(Character {
 
@@ -174,5 +174,19 @@ pub fn set_character_health(health: CharacterHealth) {
 
     let mut client = db_postgres::get_connection().unwrap();
     client.execute("UPDATE Character.Health SET Hunger = $1, Thirst = $2 WHERE CharacterId = $3", &[&health.health.hunger, &health.health.thirst, &health.character_id]).unwrap();
+
+}
+
+pub fn disable_character(character: CharacterId) {
+
+    let mut client = db_postgres::get_connection().unwrap();
+    client.execute("UPDATE Character.Health SET Disabled = 't' WHERE CharacterId = $1", &[&character.character_id]).unwrap();
+
+}
+
+pub fn enable_character(character: CharacterId) {
+
+    let mut client = db_postgres::get_connection().unwrap();
+    client.execute("UPDATE Character.Health SET Disabled = 'f' WHERE CharacterId = $1", &[&character.character_id]).unwrap();
 
 }
